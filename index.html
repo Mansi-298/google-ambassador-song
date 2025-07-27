@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mansi Wagh's Google Ambassador Song Pitch</title>
+    <!-- Tailwind CSS CDN for easy styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts - Inter for a clean, modern look -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Tone.js for programmatic background music -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5; /* Light gray background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden; /* Keep it clean for this specific pitch */
+        }
+        .container {
+            width: 95%;
+            max-width: 900px;
+            min-height: 500px;
+            background-color: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+            padding: 40px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            position: relative;
+        }
+        .play-button {
+            background-color: #4285F4; /* Google Blue */
+            color: white;
+            padding: 18px 40px;
+            font-size: 1.6rem;
+            font-weight: 700;
+            border-radius: 50px;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(66, 133, 244, 0.4);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+        }
+        .play-button:hover {
+            background-color: #357ae8;
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(66, 133, 244, 0.6);
+        }
+        .play-button:active {
+            transform: translateY(0);
+            box-shadow: 0 5px 15px rgba(66, 133, 244, 0.3);
+        }
+        .play-button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.4s ease, height 0.4s ease;
+            z-index: -1;
+        }
+        .play-button:hover::before {
+            width: 200%;
+            height: 200%;
+        }
+
+        .lyrics-display {
+            min-height: 150px; /* Ensure space for lyrics */
+            margin-top: 30px;
+            font-size: 1.5rem;
+            font-weight: 500;
+            color: #333;
+            line-height: 1.6;
+            transition: opacity 0.5s ease-in-out;
+            opacity: 0;
+            transform: translateY(20px);
+            max-width: 700px;
+        }
+        .lyrics-display.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .lyrics-display p {
+            margin-bottom: 10px;
+        }
+        .lyrics-display p.active-line {
+            font-weight: 700;
+            color: #1a73e8; /* Google Blue */
+            transform: scale(1.02);
+            transition: all 0.3s ease-in-out;
+        }
+
+        /* Loading indicator is no longer needed without voiceovers */
+        .loading-indicator {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-3xl md:text-4xl font-extrabold text-gray-800 mb-8">
+            Mansi Wagh's Google Ambassador Song
+        </h1>
+
+        <button id="playButton" class="play-button">
+            Play My Pitch!
+        </button>
+
+        <div id="loadingIndicator" class="loading-indicator">
+            <span class="spinner"></span> <span id="loadingMessage"></span>
+        </div>
+
+        <div id="lyricsDisplay" class="lyrics-display">
+            <!-- Lyrics will be dynamically inserted here -->
+        </div>
+    </div>
+
+    <script>
+        // --- Song Data ---
+        const songParts = [
+            { text: "From Pune's vibrant tech scene, a new voice takes the floor, For Google Student Ambassador, I'm ready to explore! With bytes and algorithms, my passion takes its flight, To spread the Google gospel, with all my might!", vocalist: "Vocalist 1" },
+            { text: "My resume's a roadmap, of projects big and bold, From AWS deployments, stories to be told! To web interfaces responsive, with React and NodeJS, I've built and coded, always striving for success!", vocalist: "Vocalist 2" },
+            { text: "SocialEcho's my brainchild, with AI at its core, Content moderation, and security galore! Trendora, e-commerce, with transactions flowing free, And MediAI, a chatbot, for health tech, just for thee!", vocalist: "Vocalist 1" },
+            { text: "Scholarships and accolades, from Persistent to CFI, Top ranks in INVENTECH and Code of Clash, I reach for the sky! And in IT Department, I'm the topper, shining bright, With a CGPA of 9.93, I'm truly a guiding light!", vocalist: "Vocalist 2" },
+            { text: "So why Google Ambassador? It's more than just a name, It's connecting, inspiring, and igniting the tech flame! I'll bridge the gap, share knowledge, and foster innovation's spree, Bringing Google's magic, to every student, wild and free!", vocalist: "Vocalist 1 & 2" },
+            { text: "Because I don't just use technology... I live it. And I want to show others how they can too, powered by Google.", vocalist: "Vocalist 1 (Whisper)" }
+        ];
+
+        // --- DOM Elements ---
+        const playButton = document.getElementById('playButton');
+        const lyricsDisplay = document.getElementById('lyricsDisplay');
+        const loadingIndicator = document.getElementById('loadingIndicator'); // Still referenced for removal
+        const loadingMessage = document.getElementById('loadingMessage'); // Still referenced for removal
+
+        // --- Audio Setup ---
+        let synth; // Tone.js synthesizer for background music
+        let audioContext;
+        let clickOscillator; // Web Audio API oscillator for click sound
+
+        async function setupAudio() {
+            // Initialize Tone.js for background music
+            if (!synth) {
+                synth = new Tone.PolySynth(Tone.Synth, {
+                    oscillator: { type: "sine" },
+                    envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 1 },
+                    volume: -20 // Start with a lower volume
+                }).toDestination();
+            }
+
+            // Initialize Web Audio API for click sound
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playBackgroundMusic() {
+            if (synth && Tone.Transport.state !== 'started') {
+                // Play a simple chord progression
+                const now = Tone.now();
+                synth.triggerAttackRelease(["C4", "E4", "G4"], "4n", now);
+                synth.triggerAttackRelease(["F4", "A4", "C5"], "4n", now + 0.5);
+                synth.triggerAttackRelease(["G4", "B4", "D5"], "4n", now + 1);
+                synth.triggerAttackRelease(["C4", "E4", "G4"], "4n", now + 1.5);
+
+                // Loop the music
+                Tone.Transport.scheduleRepeat((time) => {
+                    synth.triggerAttackRelease(["C4", "E4", "G4"], "4n", time);
+                    synth.triggerAttackRelease(["F4", "A4", "C5"], "4n", time + 0.5);
+                    synth.triggerAttackRelease(["G4", "B4", "D5"], "4n", time + 1);
+                    synth.triggerAttackRelease(["C4", "E4", "G4"], "4n", time + 1.5);
+                }, "2s");
+                Tone.Transport.start();
+            }
+        }
+
+        function stopBackgroundMusic() {
+            if (Tone.Transport.state === 'started') {
+                Tone.Transport.stop();
+                Tone.Transport.cancel();
+            }
+        }
+
+        function playClickSound() {
+            if (audioContext) {
+                if (clickOscillator) {
+                    clickOscillator.stop(); // Stop any previous click sound
+                    clickOscillator.disconnect();
+                }
+                clickOscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                clickOscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                clickOscillator.type = 'sine';
+                clickOscillator.frequency.setValueAtTime(440, audioContext.currentTime); // A4 note
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime); // Volume
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.1); // Quick fade out
+
+                clickOscillator.start(audioContext.currentTime);
+                clickOscillator.stop(audioContext.currentTime + 0.1);
+            }
+        }
+
+        // --- Song Playback Logic (Lyrics only) ---
+        let currentPartIndex = 0;
+        let lyricTimeout; // To store the timeout ID for clearing
+
+        // Function to determine how long to display each lyric part
+        function getLyricDisplayDuration(text) {
+            const wordsPerMinute = 180; // Average reading speed
+            const words = text.split(/\s+/).length;
+            const durationSeconds = (words / wordsPerMinute) * 60;
+            return Math.max(durationSeconds * 1000, 2500); // Minimum 2.5 seconds per line
+        }
+
+        function playLyricsSequentially() {
+            if (currentPartIndex >= songParts.length) {
+                // Song finished
+                lyricsDisplay.innerHTML = '<p class="text-xl font-bold text-gray-700">Pitch Complete!</p>';
+                stopBackgroundMusic();
+                playButton.textContent = "Play Again?";
+                playButton.classList.remove('hidden');
+                currentPartIndex = 0; // Reset for replay
+                return;
+            }
+
+            const part = songParts[currentPartIndex];
+
+            // Display lyrics and highlight
+            lyricsDisplay.innerHTML = `<p class="active-line">${part.text}</p>`;
+            lyricsDisplay.classList.add('active');
+
+            const duration = getLyricDisplayDuration(part.text);
+
+            currentPartIndex++;
+            lyricTimeout = setTimeout(playLyricsSequentially, duration);
+        }
+
+        // --- Event Listener ---
+        playButton.addEventListener('click', async () => {
+            playClickSound();
+            playBackgroundMusic();
+            playButton.classList.add('hidden'); // Hide button during playback
+            lyricsDisplay.classList.remove('active'); // Reset animation state
+            
+            // Clear any existing timeout if replaying
+            if (lyricTimeout) {
+                clearTimeout(lyricTimeout);
+            }
+
+            currentPartIndex = 0; // Ensure we start from the beginning
+            playLyricsSequentially();
+        });
+
+        // --- Initial Setup ---
+        window.onload = async () => {
+            await setupAudio();
+            // No preloadVoiceovers needed anymore
+        };
+    </script>
+</body>
+</html>
